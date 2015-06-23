@@ -1,0 +1,9 @@
+int main() 
+{
+  int days[] = {1,2,3,4,5};
+  int *ptr = days;
+  printf("%u\n", sizeof(days));
+  printf("%u\n", sizeof(ptr));
+
+  return 0;
+}

@@ -4,9 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-
 #define MAX_DATA 512
-#define MAX_ROWS 100
 
 struct Address {
   int id;
@@ -51,26 +49,24 @@ void Address_print(struct Address *addr)
 
 void Database_load(struct Connection *conn) 
 {
-  int rc = fread(&conn->db->max_rows, sizeof(conn->db->max_rows), 1, conn->file);
-  //printf("Max rows loaded: %d \n", conn->db->max_rows);
-
+  int rc = fread(&conn->db->max_rows, sizeof(int), 1, conn->file);
   if(rc != 1) die("Failed to load max_rows.", conn);
 
   conn->db->rows = malloc(conn->db->max_rows * sizeof(struct Address));
-  rc = fread(conn->db->rows, sizeof(*(conn->db->rows)), conn->db->max_rows, conn->file);
+  if(!conn->db->rows) die("Failed to allocate rows", conn);
+
+  rc = fread(conn->db->rows, sizeof(struct Address), conn->db->max_rows, conn->file);
   if(rc != conn->db->max_rows) die("Failed to load database.", conn);
 }
 
 void Database_write(struct Connection *conn) 
 {
   rewind(conn->file);
-  //printf("row length is %d \n", conn->db->max_rows);
-  //printf("DB size %lu \n",sizeof(*(conn->db->rows)));
 
   int rc = fwrite(&(conn->db->max_rows), sizeof(int), 1 ,conn->file);
   if(rc != 1) die("Failed to write max_rows.", conn);
 
-  rc = fwrite(conn->db->rows, sizeof(*(conn->db->rows)), conn->db->max_rows, conn->file);
+  rc = fwrite(conn->db->rows, sizeof(struct Address), conn->db->max_rows, conn->file);
   if(rc != conn->db->max_rows) die("Failed to write database.", conn);
 
   rc = fflush(conn->file);
@@ -80,24 +76,18 @@ void Database_write(struct Connection *conn)
 void Database_create(struct Connection *conn, int max_rows)
 {
   conn->db->max_rows = max_rows;
-  printf("Memory being allocated %lu \n",max_rows* sizeof(struct Address));
-  conn->db->rows = malloc(max_rows* sizeof(struct Address));
-  if(!conn->db->rows) die("Failed to allocate rows in Database_create", conn);
+
+  conn->db->rows = malloc(conn->db->max_rows * sizeof(struct Address));
+  if(!conn->db->rows) die("Failed to allocate rows", conn);
 
   int i = 0;
 
   for(i = 0; i < max_rows; i++) {
-    // make a prototype to initialize it
     struct Address addr = { .id = i, .set = 0};
-    // then just assign it
     conn->db->rows[i] = addr;
   }
-
-  i = 0;
-  for(i = 0; i < max_rows; i++) {
-    Address_print(&conn->db->rows[i]);
-  }
 }
+
 struct Connection *Database_open(const char *filename, char mode)
 {
   struct Connection *conn = malloc(sizeof(struct Connection));
@@ -125,6 +115,7 @@ void Database_close(struct Connection *conn)
 {
   if(conn) {
     if(conn->file) fclose(conn->file);
+    if(conn->db->rows) free(conn->db->rows);
     if(conn->db) free(conn->db);
     free(conn);
   }
@@ -148,7 +139,7 @@ void Database_set(struct Connection *conn, int id, const char *name, const char 
 
 void Database_get(struct Connection *conn, int id)
 {
-  if(id > MAX_ROWS) {
+  if(id > conn->db->max_rows) {
     die("There's not that many rows", conn);
   }
 
@@ -169,10 +160,9 @@ void Database_delete(struct Connection *conn, int id) {
 void Database_list(struct Connection *conn) 
 {
   int i = 0;
-  struct Database *db = conn->db;
 
-  for(i=0; i< MAX_ROWS; i++) {
-    struct Address *cur = &db->rows[i];
+  for(i=0; i< conn->db->max_rows; i++) {
+    struct Address *cur = &(conn->db->rows[i]);
 
     if(cur->set) {
       Address_print(cur);

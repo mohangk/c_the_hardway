@@ -1,2 +1,5 @@
 *.dSYM
 .DS_Store
+*.o
+*.so
+*.a
